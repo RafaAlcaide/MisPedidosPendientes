@@ -1,0 +1,47 @@
+<resources>
+    <!-- Nombre de la aplicación -->
+    <string name="app_name">Mis Pedidos Pendientes</string>
+    <!-- Botones -->
+    <string name="btn_guardar">Guardar</string>
+    <string name="btn_cancelar">Cancelar</string>
+    <string name="btn_volver">Volver</string>
+    <string name="btn_tiendas">Tiendas</string>
+    <!-- Mensajes de confirmación -->
+    <string name="msg_confirmar_eliminar_pedido">¿Seguro que quieres eliminar este pedido?</string>
+    <string name="msg_confirmar_eliminar_tienda">¿Seguro que quieres eliminar esta tienda?</string>
+    <!-- Títulos -->
+    <string name="titulo_lista_pedidos">Pedidos Pendientes</string>
+    <string name="titulo_lista_tiendas">Lista de Tiendas</string>
+    <string name="titulo_agregar_pedido">Agregar Nuevo Pedido</string>
+    <string name="titulo_agregar_tienda">Agregar Nueva Tienda</string>
+    <string name="titulo_editar_pedido">Modificar Pedido</string>
+    <string name="titulo_editar_tienda">Editar Tienda</string>
+    <!-- Campos de entrada -->
+    <string name="hint_nombre_tienda">Nombre de la tienda</string>
+    <string name="hint_descripcion_pedido">Descripción del pedido</string>
+    <string name="hint_fecha_entrega">Fecha estimada de entrega</string>
+    <string name="hint_importe_pedido">Importe del pedido</string>
+    <!-- Mensajes de éxito -->
+    <string name="msg_exito_guardado">Guardado exitosamente</string>
+    <string name="msg_exito_eliminado">Eliminado correctamente</string>
+    <string name="msg_exito_actualizado">Actualizado correctamente</string>
+    <!-- Mensajes de error -->
+    <string name="error_conexion_api">Error al conectar con la API</string>
+    <string name="error_procesar_datos">Error al procesar los datos</string>
+    <string name="error_nombre_tienda_vacio">El nombre de la tienda no puede estar vacío</string>
+    <string name="error_tienda_ya_existe">Ya existe una tienda con ese nombre</string>
+    <!-- Spinner selección de tienda -->
+    <string name="prompt_elegir_tienda">Elegir Tienda</string>
+    <!-- Tarjeta de pedido (CardView) -->
+    <string name="pedido_descripcion">Descripción del pedido</string>
+    <string name="pedido_fecha">Fecha del pedido</string>
+    <string name="pedido_fecha_estimada">Fecha estimada de entrega</string>
+    <string name="pedido_tienda">Tienda</string>
+    <!-- Nuevos Strings -->
+    <string name="pedido_numero">Pedido nº</string>
+    <string name="seleccionar_tienda">Seleccionar Tienda:</string>
+    <string name="pedido_marcar_entregado">Marcar como entregado</string>
+    <string name="hint_modificar_nombre_tienda">Nuevo nombre de la tienda</string>
+    <string name="tienda_nombre">Nombre de la Tienda</string>
+    <string name="escribe_el_importe">Escribe el importe</string>
+</resources>

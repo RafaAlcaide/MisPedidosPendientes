@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Spinner para seleccionar tienda -->
+    <Spinner
+        android:id="@+id/spinnerTiendas"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:prompt="@string/prompt_elegir_tienda" />
+
+    <!-- Campo para la fecha estimada de entrega -->
+    <EditText
+        android:id="@+id/etFechaEntrega"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_fecha_entrega"
+        android:focusable="false" />
+
+    <!-- Campo para la descripción del pedido -->
+    <EditText
+        android:id="@+id/etDescripcion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_descripcion_pedido" />
+
+    <!-- Campo para el importe del pedido -->
+    <EditText
+        android:id="@+id/etImporte"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:autofillHints=""
+        android:hint="@string/hint_importe_pedido"
+        android:inputType="numberDecimal" />
+
+</LinearLayout>
