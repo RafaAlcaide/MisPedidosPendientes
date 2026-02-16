@@ -1,5 +1,6 @@
 package es.studium.mispedidospendientes;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -12,9 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-
 import org.json.JSONException;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,130 +42,196 @@ public class TiendasActivity extends AppCompatActivity {
 
         cargarTiendas();
 
-
-        btnVolver.setOnClickListener(v -> {
-            Intent intent = new Intent(TiendasActivity.this, MainActivity.class);
-            startActivity(intent);
-            finish();
+        // Volver a la actividad principal
+        btnVolver.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(TiendasActivity.this, MainActivity.class);
+                startActivity(intent);
+                finish();
+            }
         });
 
-        fabAgregarTienda.setOnClickListener(v -> mostrarDialogoAgregarTienda());
+        // Agregar nueva tienda
+        fabAgregarTienda.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                agregarTienda();
+            }
+        });
     }
 
-    // CARGAR TIENDAS --------------------
+    // Cargar tiendas desde el servidor
     private void cargarTiendas() {
-        new Thread(() -> {
-            try {
-                listaTiendas = accesoRemoto.obtenerTiendas();
-                runOnUiThread(() -> {
-                    adapter = new TiendasAdapter(TiendasActivity.this, listaTiendas);
-                    recyclerViewTiendas.setAdapter(adapter);
-                    adapter.notifyDataSetChanged();
-                });
-            } catch (IOException | JSONException e) {
-                e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(TiendasActivity.this, "Error al cargar tiendas", Toast.LENGTH_SHORT).show());
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    final List<Tienda> nuevasTiendas = accesoRemoto.obtenerTiendas();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            listaTiendas.clear();
+                            listaTiendas.addAll(nuevasTiendas);
+                            adapter.notifyDataSetChanged();
+                        }
+                    });
+                } catch (IOException | JSONException e) {
+                    e.printStackTrace();
+                }
             }
         }).start();
     }
 
-    private void mostrarDialogoAgregarTienda() {
+    // -------------------- AGREGAR TIENDA --------------------
+    private void agregarTienda() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Agregar Nueva Tienda");
-
         View viewInflated = LayoutInflater.from(this).inflate(R.layout.anadir_tienda, null);
         final EditText inputTienda = viewInflated.findViewById(R.id.etNombreTienda);
         builder.setView(viewInflated);
 
-        builder.setPositiveButton("Agregar", (dialog, which) -> {
-            String nombreTienda = inputTienda.getText().toString().trim();
-            if (nombreTienda.isEmpty()) {
-                Toast.makeText(this, "El nombre de la tienda no puede estar vacío", Toast.LENGTH_SHORT).show();
-                return;
+        builder.setPositiveButton("Agregar", null); // Control manual abajo
+        builder.setNegativeButton("Cancelar", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
             }
-            if (existeTienda(nombreTienda)) {
-                Toast.makeText(this, "Ya existe una tienda con ese nombre", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            new Thread(() -> {
-                try {
-                    accesoRemoto.agregarTienda(nombreTienda);
-                    runOnUiThread(() -> {
-                        cargarTiendas();
-                        Toast.makeText(this, "Tienda agregada correctamente", Toast.LENGTH_SHORT).show();
-                    });
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    runOnUiThread(() -> Toast.makeText(this, "Error de conexión con la API", Toast.LENGTH_SHORT).show());
-                }
-            }).start();
         });
 
-        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
-        builder.show();
+        final AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Control manual del botón
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                final String nombreTienda = inputTienda.getText().toString().trim();
+                if (nombreTienda.isEmpty()) {
+                    inputTienda.setError("El nombre es obligatorio");
+                    return;
+                }
+                if (existeTienda(nombreTienda)) {
+                    inputTienda.setError("Esa tienda ya existe");
+                    return;
+                }
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            accesoRemoto.agregarTienda(nombreTienda);
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    cargarTiendas();
+                                    Toast.makeText(TiendasActivity.this, "Tienda agregada", Toast.LENGTH_SHORT).show();
+                                    dialog.dismiss();
+                                }
+                            });
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }).start();
+            }
+        });
     }
 
+    // -------------------- VALIDACIONES --------------------
+    // VALIDAR SI EXISTE LA TIENDA
     private boolean existeTienda(String nombreTienda) {
-        for (Tienda tienda : listaTiendas) {
-            if (tienda.getNombreTienda().equalsIgnoreCase(nombreTienda)) {
-                return true;
-            }
+        for (Tienda t : listaTiendas) {
+            if (t.getNombreTienda().equalsIgnoreCase(nombreTienda)) return true; // No importa si es mayúscula o minúscula
         }
         return false;
     }
 
-    public void mostrarDialogoEditarTienda(Tienda tienda) {
+    // -------------------- MODIFICAR TIENDA --------------------
+    public void modificarTienda(final Tienda tienda) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Editar Tienda");
 
         View viewInflated = LayoutInflater.from(this).inflate(R.layout.modificar_tienda, null);
         final EditText inputTienda = viewInflated.findViewById(R.id.etModificarNombreTienda);
-        inputTienda.setText(tienda.getNombreTienda());
 
+        // Ponemos el nombre actual en el campo de texto
+        inputTienda.setText(tienda.getNombreTienda());
         builder.setView(viewInflated);
 
-        builder.setPositiveButton("Guardar", (dialog, which) -> {
-            String nuevoNombre = inputTienda.getText().toString().trim();
-
-            if (nuevoNombre.isEmpty()) {
-                Toast.makeText(this, "El nombre de la tienda no puede estar vacío", Toast.LENGTH_SHORT).show();
-                return;
+        // Botón negativo (Cancelar)
+        builder.setNegativeButton("Cancelar", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
             }
+        });
 
-            if (existeTienda(nuevoNombre) && !nuevoNombre.equalsIgnoreCase(tienda.getNombreTienda())) {
-                Toast.makeText(this, "Ya existe una tienda con ese nombre", Toast.LENGTH_SHORT).show();
-                return;
+        // Botón positivo (Guardar) - Lo ponemos a null aquí para controlar el cierre manualmente
+        builder.setPositiveButton("Guardar", null);
+
+        final AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Sobrescribimos el click del botón para que no se cierre si hay error
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                final String nuevoNombre = inputTienda.getText().toString().trim();
+
+                if (nuevoNombre.isEmpty()) {
+                    inputTienda.setError("El nombre no puede estar vacío");
+                    return;
+                }
+
+                // Hilo secundario para la red
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            // 1. Intentamos actualizar en la base de datos remota
+                            accesoRemoto.actualizarTienda(tienda.getIdTienda(), nuevoNombre);
+
+                            // 2. Si tiene éxito, volvemos al hilo principal para UI
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    // Forzamos la recarga completa de la lista desde el servidor
+                                    cargarTiendas();
+                                    Toast.makeText(TiendasActivity.this, "Tienda actualizada correctamente", Toast.LENGTH_SHORT).show();
+                                    dialog.dismiss(); // Cerramos el diálogo SOLO si todo fue bien
+                                }
+                            });
+                        } catch (final Exception e) {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(TiendasActivity.this, "Error de conexión", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    }
+                }).start();
             }
+        });
+    }
 
-            new Thread(() -> {
+    // -------------------- ELIMINAR TIENDA --------------------
+    public void eliminarTienda(final Tienda tienda) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
                 try {
-                    accesoRemoto.actualizarTienda(tienda.getIdTienda(), nuevoNombre);
-                    runOnUiThread(() -> {
-                        cargarTiendas();
-                        Toast.makeText(this, "Tienda actualizada correctamente", Toast.LENGTH_SHORT).show();
+                    accesoRemoto.eliminarTienda(tienda.getIdTienda());
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            cargarTiendas();
+                            Toast.makeText(TiendasActivity.this, "Tienda eliminada", Toast.LENGTH_SHORT).show();
+                        }
                     });
                 } catch (IOException e) {
                     e.printStackTrace();
-                    runOnUiThread(() -> Toast.makeText(this, "Error de conexión con la API", Toast.LENGTH_SHORT).show());
                 }
-            }).start();
-        });
-
-        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
-        builder.show();
-    }
-
-    public void eliminarTienda(Tienda tienda) {
-        new Thread(() -> {
-            try {
-                accesoRemoto.eliminarTienda(tienda.getIdTienda());
-                runOnUiThread(() -> {
-                    cargarTiendas();
-                    Toast.makeText(this, "Tienda eliminada correctamente", Toast.LENGTH_SHORT).show();
-                });
-            } catch (IOException e) {
-                e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(this, "Error de conexión con la API", Toast.LENGTH_SHORT).show());
             }
         }).start();
     }
