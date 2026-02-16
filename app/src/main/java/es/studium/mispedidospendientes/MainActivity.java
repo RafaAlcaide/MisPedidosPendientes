@@ -1,53 +1,37 @@
 package es.studium.mispedidospendientes;
 
 import android.app.DatePickerDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.EditText;
-import android.widget.Spinner;
-import android.widget.TextView;
-import android.widget.Toast;
-
-import androidx.activity.EdgeToEdge;
+import android.widget.*;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-
-import org.json.JSONException;
-
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
-public class MainActivity extends AppCompatActivity
-{
+public class MainActivity extends AppCompatActivity {
+
     private RecyclerView recyclerViewPedidos;
     private PedidosAdapter adapter;
     private List<Pedido> listaPedidos;
     private Button btnTiendas;
     private FloatingActionButton fabAgregarPedido;
+
     private AccesoRemoto accesoRemoto = new AccesoRemoto();
-    private Map<Integer, String> tiendasMap;
-    private List<Integer> idTiendas;
+    private List<Map.Entry<Integer, String>> tiendasList; // Lista de tiendas para el Spinner
+
 
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
         recyclerViewPedidos = findViewById(R.id.recyclerViewPedidos);
@@ -56,186 +40,337 @@ public class MainActivity extends AppCompatActivity
 
         recyclerViewPedidos.setLayoutManager(new LinearLayoutManager(this));
         listaPedidos = new ArrayList<>();
-        adapter = new PedidosAdapter(this, listaPedidos, pedido -> eliminarPedido(pedido));
+
+        adapter = new PedidosAdapter(listaPedidos, new PedidosAdapter.OnItemClickListener() {
+            @Override
+            public void onItemClick(Pedido pedido) {
+                modificarPedido(pedido);
+            }
+
+            @Override
+            public void onItemLongClick(Pedido pedido) {
+                eliminarPedido(pedido);
+            }
+        });
         recyclerViewPedidos.setAdapter(adapter);
 
-        cargarPedidos();
-
-        btnTiendas.setOnClickListener(v ->
-        {
-            Intent intent = new Intent(MainActivity.this, TiendasActivity.class);
-            startActivity(intent);
+        // Reemplazar lambda por OnClickListener tradicional
+        btnTiendas.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, TiendasActivity.class);
+                startActivity(intent);
+            }
         });
 
-        fabAgregarPedido.setOnClickListener(v -> mostrarDialogoAgregarPedido());
+        // Reemplazar lambda por OnClickListener tradicional
+        fabAgregarPedido.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                agregarPedido();
+            }
+        });
+
+        cargarPedidos();
     }
 
-    // CARGAR PEDIDOS
-    private void cargarPedidos()
-    {
-        new Thread(() -> {
-            try {
-                listaPedidos = accesoRemoto.obtenerPedidos();
-                tiendasMap = accesoRemoto.obtenerTiendasMap();
-                idTiendas = new ArrayList<>(tiendasMap.keySet());
+    // -------------------- CARGAR PEDIDOS --------------------
+    private void cargarPedidos() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    List<Pedido> pedidos = accesoRemoto.obtenerPedidos();
+                    Map<Integer, String> tiendasMap = accesoRemoto.obtenerTiendasMap();
+                    tiendasList = new ArrayList<>(tiendasMap.entrySet());
 
-                runOnUiThread(() ->
-                {
-                    adapter = new PedidosAdapter(MainActivity.this, listaPedidos, pedido -> eliminarPedido(pedido));
-                    recyclerViewPedidos.setAdapter(adapter);
-                    adapter.notifyDataSetChanged();
-                });
-            } catch (IOException | JSONException e)
-            {
-                e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Error al cargar pedidos", Toast.LENGTH_SHORT).show());
+                    // Reemplazar lambda por Runnable tradicional
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            adapter.actualizarDatos(pedidos);
+                        }
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }).start();
     }
 
-    private void mostrarDialogoAgregarPedido()
-    {
+    // -------------------- AGREGAR PEDIDO --------------------
+    private void agregarPedido() {
+        if (tiendasList == null || tiendasList.isEmpty()) {
+            Toast.makeText(this, "Cargando tiendas...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Nuevo Pedido");
 
         View view = LayoutInflater.from(this).inflate(R.layout.anadir_pedido, null);
-        Spinner spinnerTiendas = view.findViewById(R.id.spinnerTiendas);
-        EditText etFechaEntrega = view.findViewById(R.id.etFechaEntrega);
-        EditText etDescripcion = view.findViewById(R.id.etDescripcion);
-        EditText etImporte = view.findViewById(R.id.etImporte);
+        final Spinner spinnerTiendas = view.findViewById(R.id.spinnerTiendas);
+        final EditText etFechaEntrega = view.findViewById(R.id.etFechaEntrega);
+        final EditText etDescripcion = view.findViewById(R.id.etDescripcion);
+        final EditText etImporte = view.findViewById(R.id.etImporte);
 
-        ArrayAdapter<String> adapterTiendas = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new ArrayList<>(tiendasMap.values()));
-        spinnerTiendas.setAdapter(adapterTiendas);
+        List<String> nombresTiendas = new ArrayList<>();
+        for (Map.Entry<Integer, String> entrada : tiendasList) {
+            nombresTiendas.add(entrada.getValue());
+        }
+        spinnerTiendas.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, nombresTiendas));
 
-        etFechaEntrega.setOnClickListener(v -> {
-            Calendar calendar = Calendar.getInstance();
-            DatePickerDialog datePicker = new DatePickerDialog(this, (view1, year, month, day) -> {
-                etFechaEntrega.setText(String.format(Locale.getDefault(), "%02d/%02d/%04d", day, month + 1, year));
-            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
-            datePicker.show();
+        // Reemplazar lambda por OnClickListener tradicional
+        etFechaEntrega.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mostrarSelectorFecha(etFechaEntrega);
+            }
         });
 
         builder.setView(view);
-        builder.setPositiveButton("Aceptar", (dialog, which) ->
-        {
-            int selectedTiendaIndex = spinnerTiendas.getSelectedItemPosition();
-            if (selectedTiendaIndex == -1) return;
-
-            int idTienda = idTiendas.get(selectedTiendaIndex);
-            String fechaEntrega = etFechaEntrega.getText().toString();
-            String descripcion = etDescripcion.getText().toString();
-            String importe = etImporte.getText().toString();
-
-            new Thread(() -> {
-                try {
-                    accesoRemoto.agregarPedido(idTienda, convertirFechaParaAPI(fechaEntrega), descripcion, importe);
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, "Pedido agregado correctamente", Toast.LENGTH_SHORT).show();
-                        cargarPedidos();
-                    });
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }).start();
+        builder.setPositiveButton("Aceptar", null);
+        builder.setNegativeButton("Cancelar", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+            }
         });
 
-        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
-        builder.show();
+        final AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // EVENTO AL PULSAR ACEPTAR - Reemplazar lambda por OnClickListener tradicional
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int selectedTiendaIndex = spinnerTiendas.getSelectedItemPosition();
+                String fechaEntrega = etFechaEntrega.getText().toString();
+                String descripcion = etDescripcion.getText().toString();
+                String importe = etImporte.getText().toString();
+
+                boolean hayError = false;
+
+                if (descripcion.isEmpty()) { etDescripcion.setError("Obligatorio"); hayError = true; }
+                if (fechaEntrega.isEmpty()) { etFechaEntrega.setError("Obligatorio"); hayError = true; }
+                if (importe.isEmpty()) { etImporte.setError("Obligatorio"); hayError = true; }
+                if (selectedTiendaIndex == -1) { hayError = true; }
+
+                // VALIDACIÓN: NO PERMITIR FECHAS ANTERIORES
+                if (!hayError && !fechaValida(fechaEntrega)) {
+                    etFechaEntrega.setError("La fecha no puede ser anterior a hoy");
+                    hayError = true;
+                }
+
+                // VALIDACIÓN: IMPORTE DEL PEDIDO (POSITIVO)
+                if (importe.isEmpty()) {
+                    etImporte.setError("Obligatorio");
+                    hayError = true;
+                } else {
+                    try {
+                        double valorImporte = Double.parseDouble(importe);
+                        if (valorImporte <= 0) {
+                            etImporte.setError("Debe ser mayor que 0");
+                            hayError = true;
+                        }
+                    } catch (NumberFormatException e) {
+                        etImporte.setError("Formato numérico inválido");
+                        hayError = true;
+                    }
+                }
+
+                if (hayError) return;
+
+                confirmarYEnviar(selectedTiendaIndex, fechaEntrega, descripcion, importe, dialog);
+            }
+        });
     }
 
-    private String convertirFechaParaAPI(String fecha)
-    {
-        SimpleDateFormat formatoEntrada = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
-        SimpleDateFormat formatoSalida = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-
-        try {
-            Date fechaConvertida = formatoEntrada.parse(fecha);
-            return formatoSalida.format(fechaConvertida);
-        } catch (ParseException e) {
-            e.printStackTrace();
-            return fecha;
-        }
+    private void confirmarYEnviar(final int index, final String fecha, final String desc, final String imp, final AlertDialog dialogPadre) {
+        new AlertDialog.Builder(this)
+                .setTitle("Confirmar")
+                .setMessage("¿Deseas agregar este pedido?")
+                // Reemplazar lambda por DialogInterface.OnClickListener tradicional
+                .setPositiveButton("Sí", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface d, int i) {
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    int idTienda = tiendasList.get(index).getKey();
+                                    accesoRemoto.agregarPedido(idTienda, convertirFechaAPI(fecha), desc, imp);
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Toast.makeText(MainActivity.this, "Agregado", Toast.LENGTH_SHORT).show();
+                                            cargarPedidos();
+                                            dialogPadre.dismiss();
+                                        }
+                                    });
+                                } catch (Exception e) { e.printStackTrace(); }
+                            }
+                        }).start();
+                    }
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 
-    public void mostrarDialogoModificarPedido(Pedido pedido)
-    {
+    // -------------------- MODIFICAR PEDIDO --------------------
+    public void modificarPedido(final Pedido pedido) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Modificar Pedido");
 
         View view = LayoutInflater.from(this).inflate(R.layout.modificar_pedido, null);
-        TextView tvNumeroPedido = view.findViewById(R.id.tvNumeroPedido);
-        EditText etFechaEntrega = view.findViewById(R.id.etFechaEntrega);
-        EditText etDescripcion = view.findViewById(R.id.etDescripcion);
-        EditText etImporte = view.findViewById(R.id.etImporte);
-        CheckBox cbEntregado = view.findViewById(R.id.cbEntregado);
-        Spinner spinnerTiendas = view.findViewById(R.id.spinnerTiendas);
+        final Spinner spinnerTiendas = view.findViewById(R.id.spinnerTiendas);
+        final EditText etFechaEntrega = view.findViewById(R.id.etFechaEntrega);
+        final EditText etDescripcion = view.findViewById(R.id.etDescripcion);
+        final EditText etImporte = view.findViewById(R.id.etImporte);
+        final CheckBox cbxEntregado = view.findViewById(R.id.cbEntregado);
 
-        tvNumeroPedido.setText("Pedido nº " + pedido.getIdPedido());
-        etFechaEntrega.setText(pedido.getFechaEstimadaPedidoFormateada());
+        // Configurar Spinner
+        List<String> nombresTiendas = new ArrayList<>();
+        int posicionTiendaActual = 0;
+        for (int i = 0; i < tiendasList.size(); i++) {
+            nombresTiendas.add(tiendasList.get(i).getValue());
+            if (tiendasList.get(i).getKey() == pedido.getIdTienda()) posicionTiendaActual = i;
+        }
+        spinnerTiendas.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, nombresTiendas));
+        spinnerTiendas.setSelection(posicionTiendaActual);
+
+        // Rellenar datos
+        etFechaEntrega.setText(pedido.getFechaEstimadaPedido());
         etDescripcion.setText(pedido.getDescripcionPedido());
         etImporte.setText(String.valueOf(pedido.getImportePedido()));
-        cbEntregado.setChecked(pedido.getEstadoPedido() == 1);
+        cbxEntregado.setChecked(pedido.getEstadoPedido() == 1);
 
-        List<String> nombresTiendas = new ArrayList<>(tiendasMap.values());
-        ArrayAdapter<String> adapterTiendas = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, nombresTiendas);
-        spinnerTiendas.setAdapter(adapterTiendas);
-
-        int selectedIndex = new ArrayList<>(tiendasMap.keySet()).indexOf(pedido.getIdTienda());
-        if (selectedIndex >= 0) {
-            spinnerTiendas.setSelection(selectedIndex);
-        }
-
-        etFechaEntrega.setOnClickListener(v -> {
-            Calendar calendar = Calendar.getInstance();
-            DatePickerDialog datePicker = new DatePickerDialog(this, (view1, year, month, day) -> {
-                etFechaEntrega.setText(String.format(Locale.getDefault(), "%02d/%02d/%04d", day, month + 1, year));
-            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
-            datePicker.show();
+        // Reemplazar lambda por OnClickListener tradicional
+        etFechaEntrega.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mostrarSelectorFecha(etFechaEntrega);
+            }
         });
 
         builder.setView(view);
-        builder.setPositiveButton("Guardar", (dialog, which) ->
-        {
-            String nuevaFechaEntrega = etFechaEntrega.getText().toString();
-            String nuevaDescripcion = etDescripcion.getText().toString();
-            String nuevoImporte = etImporte.getText().toString();
-            boolean marcadoEntregado = cbEntregado.isChecked();
-            int nuevoEstado = marcadoEntregado ? 1 : 0;
+        // Reemplazar lambda por DialogInterface.OnClickListener tradicional
+        builder.setPositiveButton("Guardar", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                final String f = etFechaEntrega.getText().toString();
 
-            int selectedTiendaIndex = spinnerTiendas.getSelectedItemPosition();
-            int nuevaTiendaID = new ArrayList<>(tiendasMap.keySet()).get(selectedTiendaIndex);
-
-            new Thread(() -> {
-                try {
-                    accesoRemoto.actualizarPedido(pedido.getIdPedido(), pedido.getFechaPedido(), convertirFechaParaAPI(nuevaFechaEntrega), nuevaDescripcion, nuevoImporte, nuevoEstado, nuevaTiendaID);
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, "Pedido actualizado correctamente", Toast.LENGTH_SHORT).show();
-                        cargarPedidos();
-                    });
-                } catch (IOException e) {
-                    e.printStackTrace();
+                // VALIDACIÓN: No permitir fechas pasadas
+                if (!fechaValida(f)) {
+                    Toast.makeText(MainActivity.this, "Fecha no válida (es anterior a hoy)", Toast.LENGTH_SHORT).show();
+                    return;
                 }
-            }).start();
-        });
 
-        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
-        builder.show();
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            int idTiendaNueva = tiendasList.get(spinnerTiendas.getSelectedItemPosition()).getKey();
+                            accesoRemoto.actualizarPedido(
+                                    pedido.getIdPedido(),
+                                    pedido.getFechaPedido(), // No se convierte, ya es yyyy-MM-dd
+                                    convertirFechaAPI(f),
+                                    etDescripcion.getText().toString(),
+                                    etImporte.getText().toString(),
+                                    cbxEntregado.isChecked() ? 1 : 0,
+                                    idTiendaNueva);
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(MainActivity.this, "Actualizado", Toast.LENGTH_SHORT).show();
+                                    cargarPedidos();
+                                }
+                            });
+                        } catch (IOException e) { e.printStackTrace(); }
+                    }
+                }).start();
+            }
+        });
+        builder.setNegativeButton("Cancelar", null).show();
     }
 
-    public void eliminarPedido(Pedido pedido)
-    {
-        new Thread(() -> {
-            try {
-                accesoRemoto.eliminarPedido(pedido.getIdPedido());
-                runOnUiThread(() -> {
-                    listaPedidos.remove(pedido);
-                    adapter.notifyDataSetChanged();
-                    Toast.makeText(this, "Pedido eliminado correctamente", Toast.LENGTH_SHORT).show();
-                });
-            } catch (IOException e) {
-                e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(this, "Error de conexión", Toast.LENGTH_SHORT).show());
+    // -------------------- ELIMINAR PEDIDO --------------------
+    private void eliminarPedido(final Pedido pedido) {
+
+        if (pedido.getEstadoPedido() == 1) {
+            Toast.makeText(this, "No se puede eliminar un pedido entregado", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Si no está entregado, procedemos con la confirmación
+        AlertDialog.Builder borrar = new AlertDialog.Builder(this);
+        borrar.setTitle("Eliminar Pedido");
+        borrar.setMessage("¿Estás seguro de que deseas eliminar el pedido: " + pedido.getDescripcionPedido() + "?");
+        borrar.setPositiveButton("Eliminar", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            accesoRemoto.eliminarPedido(pedido.getIdPedido());
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    cargarPedidos();
+                                    Toast.makeText(MainActivity.this, "Pedido eliminado correctamente", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }).start();
             }
-        }).start();
+        });
+        borrar.setNegativeButton("Cancelar", null);
+        borrar.show();
+    }
+
+    // -------------------- UTILIDADES --------------------
+    // MOSTRAR SELECTOR DE FECHA
+    private void mostrarSelectorFecha(final EditText campo) {
+
+        Calendar c = Calendar.getInstance(); // Obtenemos la fecha actual
+
+        DatePickerDialog dpd = new DatePickerDialog(this, new DatePickerDialog.OnDateSetListener() {
+            @Override
+            public void onDateSet(DatePicker view, int year, int month, int day) { // Cuando se selecciona una fecha
+                campo.setText(String.format(Locale.getDefault(), "%02d/%02d/%04d", day, month + 1, year));
+            }
+        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH));
+
+        // BLOQUEAR FECHAS ANTERIORES (visual en el calendario del movil)
+        dpd.getDatePicker().setMinDate(System.currentTimeMillis() - 1000);
+        dpd.show();
+    }
+
+    // VALIDAR FECHA
+    private boolean fechaValida(String fechaStr) {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+        try {
+            Date fechaSeleccionada = sdf.parse(fechaStr);
+            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.HOUR_OF_DAY, 0); // Establece la hora en 0
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            // Válida si NO es anterior a hoy (permite hoy y futuro)
+            return !fechaSeleccionada.before(cal.getTime());
+        } catch (ParseException e) { return false; }
+    }
+
+    // CONVERTIR FECHA
+    private String convertirFechaAPI(String fecha) {
+        try {
+            SimpleDateFormat in = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+            SimpleDateFormat out = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            return out.format(in.parse(fecha));
+        } catch (Exception e) { return fecha; }
     }
 }
