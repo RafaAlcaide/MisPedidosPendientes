@@ -1,6 +1,7 @@
 package es.studium.mispedidospendientes;
 
 import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,8 +11,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
 
 public class TiendasAdapter extends RecyclerView.Adapter<TiendasAdapter.ViewHolder> {
-    private List<Tienda> tiendas;
-    private TiendasActivity activity;
+    private final List<Tienda> tiendas;
+    private final TiendasActivity activity;
 
     public TiendasAdapter(TiendasActivity activity, List<Tienda> tiendas) {
         this.activity = activity;
@@ -27,37 +28,51 @@ public class TiendasAdapter extends RecyclerView.Adapter<TiendasAdapter.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        Tienda tienda = tiendas.get(position);
+        final Tienda tienda = tiendas.get(position);
         holder.tvNombreTienda.setText(tienda.getNombreTienda());
 
-        holder.itemView.setOnClickListener(v -> activity.mostrarDialogoEditarTienda(tienda));
+        // CLIC CORTO: MODIFICAR
+        holder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                activity.modificarTienda(tienda);
+            }
+        });
 
-        holder.itemView.setOnLongClickListener(v -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-            builder.setTitle("Eliminar Tienda");
-            builder.setMessage("¿Estás seguro de que quieres eliminar la tienda " + tienda.getNombreTienda() + "?");
-
-            builder.setPositiveButton("Sí", (dialog, which) -> activity.eliminarTienda(tienda));
-            builder.setNegativeButton("No", (dialog, which) -> dialog.dismiss());
-
-            builder.show();
-            return true;
+        // CLIC LARGO: ELIMINAR
+        holder.itemView.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+                builder.setTitle("Eliminar Tienda")
+                        .setMessage("¿Estás seguro de que quieres eliminar " + tienda.getNombreTienda() + "?")
+                        .setPositiveButton("Sí", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                activity.eliminarTienda(tienda);
+                            }
+                        })
+                        .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        })
+                        .show();
+                return true;
+            }
         });
     }
 
     @Override
-    public int getItemCount()
-
-    {
+    public int getItemCount() {
         return tiendas.size();
     }
 
-    public static class ViewHolder extends RecyclerView.ViewHolder
-    {
+    // ViewHolder interno para reciclar vista de elementos de la lista de tiendas (item_tienda.xml)
+    public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvNombreTienda;
-
-        public ViewHolder(View itemView)
-        {
+        public ViewHolder(View itemView) {
             super(itemView);
             tvNombreTienda = itemView.findViewById(R.id.tvNombreTienda);
         }
