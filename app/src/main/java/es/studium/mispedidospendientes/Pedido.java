@@ -5,8 +5,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public class Pedido
-{
+public class Pedido {
+
     private int idPedido;
     private String fechaPedido;
     private String fechaEstimadaPedido;
@@ -18,8 +18,9 @@ public class Pedido
 
     public Pedido() {}
 
-    public Pedido(int idPedido, String fechaPedido, String fechaEstimadaPedido, String descripcionPedido, double importePedido, int estadoPedido, int idTienda, String nombreTienda)
-    {
+    public Pedido(int idPedido, String fechaPedido, String fechaEstimadaPedido, String descripcionPedido,
+                  double importePedido, int estadoPedido, int idTienda, String nombreTienda) {
+
         this.idPedido = idPedido;
         this.fechaPedido = fechaPedido;
         this.fechaEstimadaPedido = fechaEstimadaPedido;
@@ -30,25 +31,26 @@ public class Pedido
         this.nombreTienda = nombreTienda;
     }
 
-    private String formatearFecha(String fechaOriginal)
-    {
+    // Convertir un objeto Date en una cadena de texto (String)
+    private String formatearFecha(String fechaOriginal) {
+
         SimpleDateFormat formatoEntrada = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         SimpleDateFormat formatoSalida = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
 
         try {
             Date fecha = formatoEntrada.parse(fechaOriginal);
             return formatoSalida.format(fecha);
-        } catch (ParseException e) {
+        } catch (ParseException e) { //  En el caso que no formatea correctamente, devuelve la fecha original sin cambios.(ParseException e)
             e.printStackTrace();
             return fechaOriginal;
         }
     }
 
-    public String getFechaPedidoFormateada() {
+    public String getFechaPedido() {
         return formatearFecha(fechaPedido);
     }
 
-    public String getFechaEstimadaPedidoFormateada() {
+    public String getFechaEstimadaPedido() {
         return formatearFecha(fechaEstimadaPedido);
     }
 
@@ -56,59 +58,27 @@ public class Pedido
         return idPedido;
     }
 
-    public String getFechaPedido() {
-        return fechaPedido;
-    }
-
-    public void setFechaPedido(String fechaPedido) {
-        this.fechaPedido = fechaPedido;
-    }
-
-    public String getFechaEstimadaPedido() {
-        return fechaEstimadaPedido;
-    }
-
-    public void setFechaEstimadaPedido(String fechaEstimadaPedido) {
-        this.fechaEstimadaPedido = fechaEstimadaPedido;
-    }
-
     public String getDescripcionPedido() {
         return descripcionPedido;
-    }
-
-    public void setDescripcionPedido(String descripcionPedido) {
-        this.descripcionPedido = descripcionPedido;
     }
 
     public double getImportePedido() {
         return importePedido;
     }
 
-    public void setImportePedido(double importePedido) {
-        this.importePedido = importePedido;
-    }
-
     public int getEstadoPedido() {
         return estadoPedido;
-    }
-
-    public void setEstadoPedido(int estadoPedido) {
-        this.estadoPedido = estadoPedido;
     }
 
     public int getIdTienda() {
         return idTienda;
     }
 
-    public void setIdTienda(int idTienda) {
-        this.idTienda = idTienda;
-    }
-
     public String getNombreTienda() {
         return nombreTienda;
     }
 
-    public void setNombreTienda(String nombreTienda) {
-        this.nombreTienda = nombreTienda;
+    public String getFechaEstimadaFormateada() {
+        return fechaEstimadaPedido;
     }
 }
